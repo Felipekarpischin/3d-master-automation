@@ -7,6 +7,7 @@
   <title>3D Master — Pedidos</title>
   <meta name="description" content="Painel simples de pedidos e orçamentos da 3D Master.">
   <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/crud.css">
 </head>
 <body>
   <header class="app-header">
@@ -95,7 +96,7 @@
 
   <div class="overlay" id="order-overlay" aria-hidden="true">
     <section class="modal" role="dialog" aria-modal="true" aria-labelledby="order-title">
-      <header><div><h2 id="order-title">Novo pedido</h2><p>Preencha os dados principais.</p></div><button type="button" id="close-order" aria-label="Fechar">×</button></header>
+      <header><div><h2 id="order-title">Novo pedido</h2><p id="order-subtitle">Preencha os dados principais.</p></div><button type="button" id="close-order" aria-label="Fechar">×</button></header>
       <form id="order-form">
         <div class="form-grid">
           <label><span>Cliente *</span><input name="customerName" required placeholder="Nome do cliente"></label>
@@ -118,7 +119,7 @@
           </div>
         </details>
         <div class="quote-line"><span>Valor sugerido</span><strong id="preview-total">R$ 0,00</strong><small id="preview-breakdown">Custo R$ 0,00 · Margem 40%</small></div>
-        <footer><button type="button" class="secondary" id="cancel-order">Cancelar</button><button type="submit" class="primary">Salvar pedido</button></footer>
+        <footer><button type="button" class="secondary" id="cancel-order">Cancelar</button><button type="submit" class="primary" id="save-order">Salvar pedido</button></footer>
       </form>
     </section>
   </div>

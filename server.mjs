@@ -1,5 +1,5 @@
 import http from "node:http";
-import { readFile, mkdir, writeFile } from "node:fs/promises";
+import { readFile, mkdir, writeFile, unlink } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -84,6 +84,40 @@ async function api(req, res, url) {
     return json(res, 201, saved);
   }
 
+  const orderMatch = url.pathname.match(/^\/api\/orders\/(\d+)$/);
+  if (req.method === "PUT" && orderMatch) {
+    const id = Number(orderMatch[1]);
+    const current = getOrder(id);
+    if (!current) return json(res, 404, { error: "Pedido não encontrado." });
+    const body = await bodyJson(req);
+    validateOrder(body);
+    const settings = getSettings();
+    const quote = calculateQuote(body, settings);
+    const customer = upsertCustomer(body.customerName.trim(), body.contact.trim());
+    const uploadedImage = await saveImage(body.referenceImage);
+    const imagePath = uploadedImage || current.image_path || "";
+    db.prepare(`UPDATE orders SET customer_id=?, product=?, size=?, quantity=?, color=?, weight=?, print_hours=?, deadline=?, notes=?, image_path=?, material_cost=?, machine_cost=?, energy_cost=?, extra_cost=?, margin=?, total_price=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`).run(
+      customer.id, body.product.trim(), body.size || "", Number(body.quantity), body.color || "", Number(body.weight) || 0,
+      Number(body.printHours) || 0, body.deadline || "", body.notes || "", imagePath, quote.materialCost, quote.machineCost,
+      quote.energyCost, quote.extraCost, quote.margin, quote.total, id
+    );
+    const updated = getOrder(id);
+    db.prepare("UPDATE orders SET message=?, updated_at=CURRENT_TIMESTAMP WHERE id=?").run(fallbackMessage(updated, settings.company_name), id);
+    removeOrphanCustomer(current.customer_id);
+    if (uploadedImage && current.image_path && uploadedImage !== current.image_path) await removeUploadedImage(current.image_path);
+    return json(res, 200, getOrder(id));
+  }
+
+  if (req.method === "DELETE" && orderMatch) {
+    const id = Number(orderMatch[1]);
+    const current = getOrder(id);
+    if (!current) return json(res, 404, { error: "Pedido não encontrado." });
+    db.prepare("DELETE FROM orders WHERE id=?").run(id);
+    removeOrphanCustomer(current.customer_id);
+    await removeUploadedImage(current.image_path);
+    return json(res, 200, { deleted: true, id });
+  }
+
   const statusMatch = url.pathname.match(/^\/api\/orders\/(\d+)\/status$/);
   if (req.method === "PATCH" && statusMatch) {
     const body = await bodyJson(req);
@@ -142,6 +176,9 @@ function upsertCustomer(name, contact) {
   db.prepare("INSERT OR IGNORE INTO customers(name,contact) VALUES(?,?)").run(name, contact);
   return db.prepare("SELECT * FROM customers WHERE name=? AND contact=?").get(name, contact);
 }
+function removeOrphanCustomer(id) {
+  db.prepare("DELETE FROM customers WHERE id=? AND NOT EXISTS (SELECT 1 FROM orders WHERE customer_id=?)").run(id, id);
+}
 function validateOrder(body) {
   if (!body.customerName?.trim() || !body.contact?.trim() || !body.product?.trim()) throw Object.assign(new Error("Preencha cliente, contato e produto."), { status: 400 });
   if (!Number(body.quantity) || Number(body.quantity) < 1) throw Object.assign(new Error("A quantidade deve ser maior que zero."), { status: 400 });
@@ -159,6 +196,12 @@ async function saveImage(dataUrl) {
   const name = `${Date.now()}-${crypto.randomUUID()}.${ext}`;
   await writeFile(path.join(UPLOADS, name), Buffer.from(match[2], "base64"));
   return `/uploads/${name}`;
+}
+async function removeUploadedImage(imagePath) {
+  if (!imagePath?.startsWith("/uploads/")) return;
+  const target = path.join(UPLOADS, path.basename(imagePath));
+  if (path.dirname(target) !== UPLOADS) return;
+  try { await unlink(target); } catch (error) { if (error.code !== "ENOENT") console.error(error); }
 }
 async function staticFile(res, pathname) {
   const relative = pathname.replace(/^\/+/, "");

@@ -1,0 +1,41 @@
+.crud-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.crud-actions button {
+  border: 0;
+  border-radius: 8px;
+  padding: 9px 13px;
+  font-weight: 700;
+}
+
+.edit-button {
+  background: #efefec;
+  color: var(--text);
+}
+
+.delete-button {
+  background: #f8e8e6;
+  color: #a1392f;
+}
+
+.delete-button:hover {
+  background: #f1d5d1;
+}
+
+.crud-actions button:disabled {
+  cursor: wait;
+  opacity: .65;
+}
+
+@media (max-width: 720px) {
+  .crud-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+}

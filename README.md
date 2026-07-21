@@ -46,7 +46,7 @@ Mais detalhes: [documentação de arquitetura](docs/ARCHITECTURE.md).
 
 | Área | Entrega |
 |---|---|
-| Pedidos | Cadastro, busca, imagem de referência e acompanhamento |
+| Pedidos | CRUD completo: cadastro, consulta, edição, exclusão segura, busca e imagem de referência |
 | Clientes | Criação automática e histórico de pedidos |
 | Precificação | Material, máquina, energia, extras, margem e pedido mínimo |
 | Produção | Status do pedido até entrega ou cancelamento |
@@ -135,7 +135,7 @@ A suíte verifica:
 - formação do preço e margem;
 - valor mínimo do pedido;
 - mensagem de fallback sem IA;
-- criação e leitura de pedido em SQLite.
+- criação, leitura, atualização e exclusão de pedido em SQLite.
 
 ## Segurança e privacidade
 

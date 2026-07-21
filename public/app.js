@@ -1,4 +1,4 @@
-const state = { orders: [], customers: [], settings: {}, currentOrder: null };
+const state = { orders: [], customers: [], settings: {}, currentOrder: null, editingOrderId: null };
 const statusLabels = { novo: "Novo", orcamento_enviado: "Orçamento enviado", aprovado: "Aprovado", imprimindo: "Imprimindo", entregue: "Entregue", cancelado: "Cancelado" };
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -8,7 +8,8 @@ const escapeHtml = value => String(value ?? "").replace(/[&<>'"]/g, char => ({ "
 
 async function api(path, options = {}) {
   const response = await fetch(path, { headers: { "Content-Type": "application/json", ...(options.headers || {}) }, ...options });
-  const data = await response.json();
+  const text = await response.text();
+  const data = text ? JSON.parse(text) : null;
   if (!response.ok) throw new Error(data.error || "Não foi possível concluir.");
   return data;
 }
@@ -57,12 +58,30 @@ function setOverlay(id, open) {
   const overlay = $(id); overlay.classList.toggle("open", open); overlay.setAttribute("aria-hidden", String(!open));
   document.body.style.overflow = open ? "hidden" : "";
 }
-function openOrder() {
-  $("#order-form").elements.margin.value = state.settings.default_margin || 40;
+function openOrder(order = null) {
+  const form = $("#order-form");
+  form.reset();
+  state.editingOrderId = order?.id || null;
+  $("#order-title").textContent = order ? `Editar ${order.code}` : "Novo pedido";
+  $("#order-subtitle").textContent = order ? "Atualize os dados e recalcule o orçamento." : "Preencha os dados principais.";
+  $("#save-order").textContent = order ? "Salvar alterações" : "Salvar pedido";
+  form.elements.margin.value = order?.margin ?? state.settings.default_margin ?? 40;
+  if (order) {
+    const fields = {
+      customerName: order.customer_name, contact: order.customer_contact, product: order.product,
+      quantity: order.quantity, weight: order.weight, printHours: order.print_hours,
+      deadline: order.deadline?.slice(0, 10) || "", size: order.size, color: order.color,
+      extraCost: order.extra_cost, margin: order.margin, notes: order.notes,
+    };
+    Object.entries(fields).forEach(([name, value]) => { form.elements[name].value = value ?? ""; });
+    form.querySelector("details").open = Boolean(order.size || order.color || order.extra_cost || order.notes || order.image_path);
+  } else {
+    form.querySelector("details").open = false;
+  }
   setOverlay("#order-overlay", true); calculatePreview();
-  setTimeout(() => $("#order-form").elements.customerName.focus(), 100);
+  setTimeout(() => form.elements.customerName.focus(), 100);
 }
-function closeOrder() { setOverlay("#order-overlay", false); }
+function closeOrder() { setOverlay("#order-overlay", false); state.editingOrderId = null; }
 
 async function calculatePreview() {
   const body = Object.fromEntries(new FormData($("#order-form")));
@@ -82,10 +101,12 @@ async function submitOrder(event) {
   if (file) data.referenceImage = await fileToData(file);
   const button = form.querySelector('[type="submit"]'); button.disabled = true; button.textContent = "Salvando...";
   try {
-    await api("/api/orders", { method: "POST", body: JSON.stringify(data) });
+    const editing = Boolean(state.editingOrderId);
+    const endpoint = editing ? `/api/orders/${state.editingOrderId}` : "/api/orders";
+    await api(endpoint, { method: editing ? "PUT" : "POST", body: JSON.stringify(data) });
     form.reset(); closeOrder(); await load(); toast("Pedido salvo.");
   } catch (error) { toast(error.message, true); }
-  finally { button.disabled = false; button.textContent = "Salvar pedido"; }
+  finally { button.disabled = false; button.textContent = state.editingOrderId ? "Salvar alterações" : "Salvar pedido"; }
 }
 
 function openDetail(id) {
@@ -96,7 +117,8 @@ function openDetail(id) {
     <div class="cost-box"><div class="cost-row"><span>Material</span><strong>${brl(order.material_cost)}</strong></div><div class="cost-row"><span>Máquina e energia</span><strong>${brl(Number(order.machine_cost) + Number(order.energy_cost))}</strong></div><div class="cost-row"><span>Extras</span><strong>${brl(order.extra_cost)}</strong></div><div class="cost-row total"><span>Valor sugerido</span><strong>${brl(order.total_price)}</strong></div></div>
     <label class="status-field"><span>Status</span><select id="detail-status">${Object.entries(statusLabels).map(([key, label]) => `<option value="${key}" ${key === order.status ? "selected" : ""}>${label}</option>`).join("")}</select></label>
     <div class="message-box" id="message-box">${escapeHtml(order.message || "")}</div>
-    <div class="detail-actions"><button class="copy-button" id="copy-message">Copiar para WhatsApp</button><button class="ai-button" id="ai-message">Melhorar com Ollama</button></div>`;
+    <div class="detail-actions"><button class="copy-button" id="copy-message">Copiar para WhatsApp</button><button class="ai-button" id="ai-message">Melhorar com Ollama</button></div>
+    <div class="crud-actions"><button class="edit-button" id="edit-order">Editar pedido</button><button class="delete-button" id="delete-order">Excluir pedido</button></div>`;
   setOverlay("#detail-overlay", true);
 }
 function closeDetail() { setOverlay("#detail-overlay", false); }
@@ -114,13 +136,22 @@ async function improveMessage() {
   } catch (error) { toast(error.message, true); }
   finally { button.disabled = false; button.textContent = "Melhorar com Ollama"; }
 }
+async function deleteOrder() {
+  const order = state.currentOrder;
+  if (!order || !window.confirm(`Excluir o pedido ${order.code}? Esta ação não pode ser desfeita.`)) return;
+  const button = $("#delete-order"); button.disabled = true; button.textContent = "Excluindo...";
+  try {
+    await api(`/api/orders/${order.id}`, { method: "DELETE" });
+    closeDetail(); await load(); toast("Pedido excluído.");
+  } catch (error) { toast(error.message, true); button.disabled = false; button.textContent = "Excluir pedido"; }
+}
 
 function fillSettings() { const form = $("#settings-form"); Object.entries(state.settings).forEach(([key, value]) => { if (form.elements[key]) form.elements[key].value = value; }); }
 async function saveSettings(event) { event.preventDefault(); try { state.settings = await api("/api/settings", { method: "PUT", body: JSON.stringify(Object.fromEntries(new FormData(event.currentTarget))) }); toast("Ajustes salvos."); } catch (error) { toast(error.message, true); } }
 function toast(message, error = false) { const element = $("#toast"); element.textContent = message; element.style.background = error ? "#963f34" : "#202124"; element.classList.add("show"); clearTimeout(toast.timer); toast.timer = setTimeout(() => element.classList.remove("show"), 2800); }
 function fileToData(file) { return new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = reject; reader.readAsDataURL(file); }); }
 
-$$('[data-open-order]').forEach(element => element.addEventListener("click", openOrder));
+$$('[data-open-order]').forEach(element => element.addEventListener("click", () => openOrder()));
 $$(".nav-item").forEach(element => element.addEventListener("click", () => switchView(element.dataset.view)));
 document.addEventListener("click", event => { const button = event.target.closest("[data-detail]"); if (button) openDetail(button.dataset.detail); });
 $("#close-order").addEventListener("click", closeOrder); $("#cancel-order").addEventListener("click", closeOrder);
@@ -132,6 +163,11 @@ $("#order-form").addEventListener("input", () => { clearTimeout(calculatePreview
 $("#order-search").addEventListener("input", renderOrders); $("#status-filter").addEventListener("change", renderOrders);
 $("#settings-form").addEventListener("submit", saveSettings);
 $("#detail-content").addEventListener("change", event => { if (event.target.id === "detail-status") updateStatus(event.target.value); });
-$("#detail-content").addEventListener("click", async event => { if (event.target.id === "copy-message") { await navigator.clipboard.writeText($("#message-box").textContent); toast("Mensagem copiada."); } if (event.target.id === "ai-message") improveMessage(); });
+$("#detail-content").addEventListener("click", async event => {
+  if (event.target.id === "copy-message") { await navigator.clipboard.writeText($("#message-box").textContent); toast("Mensagem copiada."); }
+  if (event.target.id === "ai-message") improveMessage();
+  if (event.target.id === "edit-order") { const order = state.currentOrder; closeDetail(); openOrder(order); }
+  if (event.target.id === "delete-order") deleteOrder();
+});
 document.addEventListener("keydown", event => { if (event.key === "Escape") { closeOrder(); closeDetail(); } });
 load();
