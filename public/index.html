@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#ffffff">
+  <title>3D Master — Pedidos</title>
+  <meta name="description" content="Painel simples de pedidos e orçamentos da 3D Master.">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-inner">
+      <a class="brand" href="#" aria-label="3D Master — Pedidos"><span>3D</span><strong>3D Master</strong></a>
+      <nav aria-label="Navegação principal">
+        <button class="nav-item active" data-view="orders">Pedidos <em id="order-count">0</em></button>
+        <button class="nav-item" data-view="customers">Clientes</button>
+        <button class="nav-item" data-view="settings">Ajustes</button>
+      </nav>
+      <span class="local-status"><i></i> Local</span>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="view active" id="orders-view">
+      <div class="page-head">
+        <div><h1>Pedidos</h1><p>Orçamentos e produção em um só lugar.</p></div>
+        <button class="primary" data-open-order>+ Novo pedido</button>
+      </div>
+
+      <div class="summary">
+        <div><span>Ativos</span><strong id="metric-active">0</strong></div>
+        <div><span>Imprimindo</span><strong id="metric-printing">0</strong></div>
+        <div><span>Valor aprovado</span><strong id="metric-approved">R$ 0,00</strong></div>
+      </div>
+
+      <div class="toolbar">
+        <input id="order-search" type="search" placeholder="Buscar pedido, cliente ou produto">
+        <select id="status-filter" aria-label="Filtrar por status">
+          <option value="">Todos os status</option>
+          <option value="novo">Novo</option>
+          <option value="orcamento_enviado">Orçamento enviado</option>
+          <option value="aprovado">Aprovado</option>
+          <option value="imprimindo">Imprimindo</option>
+          <option value="entregue">Entregue</option>
+          <option value="cancelado">Cancelado</option>
+        </select>
+      </div>
+
+      <section class="card table-card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Pedido</th><th>Cliente</th><th>Produto</th><th>Status</th><th>Valor</th><th></th></tr></thead>
+            <tbody id="orders-list"></tbody>
+          </table>
+        </div>
+        <div class="empty" id="orders-empty"><h2>Nenhum pedido</h2><p>Cadastre o primeiro pedido para começar.</p><button class="primary" data-open-order>+ Novo pedido</button></div>
+      </section>
+    </section>
+
+    <section class="view" id="customers-view">
+      <div class="page-head"><div><h1>Clientes</h1><p>Cadastrados automaticamente pelos pedidos.</p></div></div>
+      <section class="card table-card">
+        <div class="table-wrap"><table><thead><tr><th>Cliente</th><th>Contato</th><th>Pedidos</th><th>Total</th></tr></thead><tbody id="customers-list"></tbody></table></div>
+        <div class="empty" id="customers-empty"><h2>Nenhum cliente</h2><p>Os clientes aparecerão aqui após o primeiro pedido.</p></div>
+      </section>
+    </section>
+
+    <section class="view" id="settings-view">
+      <div class="page-head"><div><h1>Ajustes</h1><p>Defina os valores usados nos orçamentos.</p></div></div>
+      <form id="settings-form" class="settings-grid">
+        <section class="card form-card">
+          <h2>Custos</h2>
+          <div class="form-grid">
+            <label><span>Filamento por kg (R$)</span><input name="filament_price_kg" type="number" min="0" step="0.01"></label>
+            <label><span>Máquina por hora (R$)</span><input name="machine_hour_cost" type="number" min="0" step="0.01"></label>
+            <label><span>Energia por hora (R$)</span><input name="energy_hour_cost" type="number" min="0" step="0.01"></label>
+            <label><span>Margem padrão (%)</span><input name="default_margin" type="number" min="0" max="90"></label>
+            <label><span>Pedido mínimo (R$)</span><input name="minimum_order" type="number" min="0" step="0.01"></label>
+            <label><span>Nome da empresa</span><input name="company_name"></label>
+          </div>
+        </section>
+        <section class="card form-card">
+          <h2>Integrações opcionais</h2>
+          <div class="form-grid one-column">
+            <label><span>Endereço do Ollama</span><input name="ollama_url" placeholder="http://127.0.0.1:11434"></label>
+            <label><span>Modelo do Ollama</span><input name="ollama_model" placeholder="qwen3.5:4b"></label>
+            <label><span>Webhook do n8n</span><input name="n8n_webhook_url" placeholder="http://127.0.0.1:5678/webhook/3d-master"></label>
+          </div>
+        </section>
+        <div class="form-actions"><button class="primary" type="submit">Salvar ajustes</button></div>
+      </form>
+    </section>
+  </main>
+
+  <div class="overlay" id="order-overlay" aria-hidden="true">
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="order-title">
+      <header><div><h2 id="order-title">Novo pedido</h2><p>Preencha os dados principais.</p></div><button type="button" id="close-order" aria-label="Fechar">×</button></header>
+      <form id="order-form">
+        <div class="form-grid">
+          <label><span>Cliente *</span><input name="customerName" required placeholder="Nome do cliente"></label>
+          <label><span>WhatsApp ou contato *</span><input name="contact" required placeholder="(11) 99999-9999"></label>
+          <label class="wide"><span>Produto *</span><input name="product" required placeholder="Ex.: Suporte para celular"></label>
+          <label><span>Quantidade *</span><input name="quantity" type="number" required min="1" value="1"></label>
+          <label><span>Peso por peça (g)</span><input name="weight" type="number" min="0" step="0.1" value="100"></label>
+          <label><span>Tempo por peça (h)</span><input name="printHours" type="number" min="0" step="0.1" value="2"></label>
+          <label><span>Prazo</span><input name="deadline" type="date"></label>
+        </div>
+        <details>
+          <summary>Mais detalhes (opcional)</summary>
+          <div class="form-grid optional-fields">
+            <label><span>Tamanho</span><input name="size" placeholder="Ex.: 18 × 8 × 6 cm"></label>
+            <label><span>Cor</span><input name="color" placeholder="Ex.: Preto"></label>
+            <label><span>Custo extra (R$)</span><input name="extraCost" type="number" min="0" step="0.01" value="0"></label>
+            <label><span>Margem (%)</span><input name="margin" type="number" min="0" max="90"></label>
+            <label class="wide"><span>Observações</span><textarea name="notes" rows="3"></textarea></label>
+            <label class="wide"><span>Imagem de referência</span><input name="image" type="file" accept="image/png,image/jpeg,image/webp"><small>PNG, JPG ou WebP — até 3 MB</small></label>
+          </div>
+        </details>
+        <div class="quote-line"><span>Valor sugerido</span><strong id="preview-total">R$ 0,00</strong><small id="preview-breakdown">Custo R$ 0,00 · Margem 40%</small></div>
+        <footer><button type="button" class="secondary" id="cancel-order">Cancelar</button><button type="submit" class="primary">Salvar pedido</button></footer>
+      </form>
+    </section>
+  </div>
+
+  <div class="overlay" id="detail-overlay" aria-hidden="true">
+    <section class="modal detail-modal" role="dialog" aria-modal="true" aria-labelledby="detail-title">
+      <header><div><small id="detail-code">PEDIDO</small><h2 id="detail-title">Detalhes</h2></div><button type="button" id="close-detail" aria-label="Fechar">×</button></header>
+      <div id="detail-content"></div>
+    </section>
+  </div>
+
+  <div class="toast" id="toast" role="status"></div>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

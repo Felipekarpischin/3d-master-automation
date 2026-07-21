@@ -1,0 +1,100 @@
+{
+  "id": "d0f32366-573a-4db7-951c-f1bd87b47d25",
+  "name": "3D Master - Novo pedido",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "3d-master-pedido",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "id": "47e4b718-07ee-4ab5-82ee-b09b7412dbf2",
+      "name": "Receber pedido",
+      "webhookId": "3d-master-pedido"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e28f4d74-16eb-4e4b-afc5-663376569328",
+              "name": "pedido",
+              "value": "={{ $json.body.code }}",
+              "type": "string"
+            },
+            {
+              "id": "891db7a5-a540-4d0d-b521-7d58fc71d197",
+              "name": "cliente",
+              "value": "={{ $json.body.customer_name }}",
+              "type": "string"
+            },
+            {
+              "id": "3dbf4033-35d2-4d15-a300-e203f1b03a13",
+              "name": "produto",
+              "value": "={{ $json.body.product }}",
+              "type": "string"
+            },
+            {
+              "id": "1e7063ea-9614-4f57-861e-fbeab36ea9fc",
+              "name": "valor",
+              "value": "={{ $json.body.total_price }}",
+              "type": "number"
+            },
+            {
+              "id": "75ebcaeb-5140-4730-86da-64895007f440",
+              "name": "status",
+              "value": "={{ $json.body.status }}",
+              "type": "string"
+            },
+            {
+              "id": "5325ed13-00a7-4cc9-bde0-ed6071c10f5b",
+              "name": "recebido_em",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [240, 0],
+      "id": "a1961370-f6c3-4185-9d99-1f56922a0ea1",
+      "name": "Organizar dados"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { recebido: true, pedido: $json.pedido } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [480, 0],
+      "id": "18e4a119-47a6-434d-a9e7-4b54311adad6",
+      "name": "Confirmar recebimento"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Receber pedido": {
+      "main": [[{ "node": "Organizar dados", "type": "main", "index": 0 }]]
+    },
+    "Organizar dados": {
+      "main": [[{ "node": "Confirmar recebimento", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "bcbe95e7-84b2-49e2-92e1-5f3e607c69e3",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}
