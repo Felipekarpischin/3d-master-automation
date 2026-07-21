@@ -1,82 +1,194 @@
-# 3D Master — painel local de pedidos
+# 3D Master Automation
 
-Primeira versão funcional do sistema da 3D Master. O painel cadastra clientes e pedidos, calcula custos de impressão e margem, acompanha a produção e gera uma mensagem pronta para WhatsApp. Tudo funciona localmente e sem API paga.
+[![CI](https://github.com/Felipekarpischin/3d-master-automation/actions/workflows/ci.yml/badge.svg)](https://github.com/Felipekarpischin/3d-master-automation/actions/workflows/ci.yml)
+![Node.js](https://img.shields.io/badge/Node.js-22%2B-339933?logo=nodedotjs&logoColor=white)
+![SQLite](https://img.shields.io/badge/SQLite-local-003B57?logo=sqlite&logoColor=white)
+![Ollama](https://img.shields.io/badge/IA-Ollama_local-111111)
+![n8n](https://img.shields.io/badge/Automação-n8n-FF6D5A?logo=n8n&logoColor=white)
 
-> Projeto de portfólio executado localmente. Ele não cria túnel, não abre porta pública e não envia o banco de clientes para serviços externos.
+Sistema local para transformar contatos de clientes em pedidos, orçamentos e etapas de produção de impressão 3D. O projeto combina uma interface administrativa simples, cálculo determinístico de custos, IA local e automação - sem API paga e sem enviar dados da operação para a nuvem.
 
-## Manual prático
+> Projeto de portfólio com foco em automação, integração de sistemas, segurança local-first e aplicação prática de IA.
 
-O guia completo de operação está disponível em [Manual-Pratico-3D-Master.pdf](outputs/Manual-Pratico-3D-Master.pdf).
+## O problema
 
-## O que já funciona
+Pequenas operações de impressão 3D costumam receber pedidos por vários canais e controlar preço, prazo e produção manualmente. Isso dificulta a padronização dos orçamentos e aumenta o risco de perder informações importantes.
 
-- Cadastro de pedidos e clientes
-- Imagem de referência (PNG, JPG ou WebP)
-- Cálculo de filamento, máquina, energia, custos extras e margem
-- Pedido mínimo configurável
-- Status: novo, orçamento enviado, aprovado, imprimindo, entregue e cancelado
-- Mensagem pronta para copiar no WhatsApp
-- Aprimoramento opcional da mensagem por um modelo no Ollama
-- Webhook opcional para iniciar um fluxo no n8n
-- Banco SQLite local e interface responsiva
+## A solução
 
-## Iniciar
+O 3D Master Automation centraliza o fluxo em uma única aplicação:
 
-É necessário ter Node.js 22.13 ou mais recente.
+1. registra cliente, produto, quantidade, peso, tempo, prazo e referência visual;
+2. calcula material, máquina, energia, extras e margem;
+3. salva o histórico localmente em SQLite;
+4. prepara uma mensagem comercial para WhatsApp;
+5. aprimora o texto com Ollama, quando disponível;
+6. notifica um workflow local do n8n;
+7. acompanha o pedido até a entrega.
 
-No Windows, a forma mais simples é dar dois cliques em `INICIAR-3D-MASTER.cmd`. O iniciador abre o painel, o Ollama e o n8n. Mantenha a janela aberta durante o uso e pressione `Ctrl+C` para encerrar os serviços iniciados por ela.
+## Arquitetura
 
-Para iniciar somente o painel pelo terminal:
+```mermaid
+flowchart LR
+    U["Operador"] -->|"127.0.0.1:3333"| UI["Painel web"]
+    UI --> API["API Node.js"]
+    API --> DB[("SQLite local")]
+    API -->|"texto opcional"| OL["Ollama local"]
+    API -->|"webhook opcional"| N8N["n8n local"]
+    DB --> FILES["Imagens e histórico local"]
+```
+
+Todos os serviços operacionais usam o endereço de loopback `127.0.0.1`. O iniciador não cria túnel, não altera o roteador e não abre porta pública no computador.
+
+Mais detalhes: [documentação de arquitetura](docs/ARCHITECTURE.md).
+
+## Funcionalidades
+
+| Área | Entrega |
+|---|---|
+| Pedidos | Cadastro, busca, imagem de referência e acompanhamento |
+| Clientes | Criação automática e histórico de pedidos |
+| Precificação | Material, máquina, energia, extras, margem e pedido mínimo |
+| Produção | Status do pedido até entrega ou cancelamento |
+| Comunicação | Mensagem pronta para copiar no WhatsApp |
+| IA local | Aprimoramento opcional do texto com Ollama |
+| Automação | Webhook local e workflow exportável do n8n |
+| Persistência | SQLite e uploads armazenados somente no computador |
+
+## Tecnologias e decisões
+
+- **Node.js 22:** servidor HTTP e API usando apenas recursos nativos.
+- **SQLite:** banco leve, transacional e simples de copiar para backup.
+- **HTML, CSS e JavaScript:** interface responsiva sem framework pesado.
+- **Ollama:** IA opcional executada localmente, sem cobrança por requisição.
+- **n8n Community:** automação local e workflow versionado no repositório.
+- **Node Test Runner:** testes de cálculo, fallback de mensagem e integração com SQLite.
+- **GitHub Actions:** testes automáticos a cada push e pull request.
+
+## Como executar
+
+### Pré-requisitos
+
+- Windows 10 ou 11;
+- Node.js `22.13.0` ou superior;
+- Ollama e n8n são opcionais para o funcionamento básico.
+
+### Inicialização simples no Windows
+
+Dê dois cliques em:
+
+```text
+INICIAR-3D-MASTER.cmd
+```
+
+O iniciador verifica os serviços locais e abre o painel em:
+
+```text
+http://127.0.0.1:3333
+```
+
+Mantenha a janela do iniciador aberta e pressione `Ctrl+C` para encerrar os processos iniciados por ela.
+
+### Somente o painel
 
 ```powershell
 npm start
 ```
 
-Abra `http://127.0.0.1:3333` no navegador. O banco será criado automaticamente em `data/3d-master.sqlite` no primeiro uso.
-
-Para desenvolvimento, com reinício automático:
+### Desenvolvimento
 
 ```powershell
 npm run dev
 ```
 
-Para executar os testes:
+## IA local com Ollama
+
+O sistema sempre possui uma mensagem padrão e continua funcionando sem IA. Para habilitar o aprimoramento de texto:
+
+```powershell
+ollama pull qwen3.5:4b
+```
+
+Depois, confirme no painel:
+
+- endereço: `http://127.0.0.1:11434`;
+- modelo: `qwen3.5:4b`.
+
+## Automação com n8n
+
+O workflow versionado está em [`n8n/workflows/3d-master-novo-pedido.json`](n8n/workflows/3d-master-novo-pedido.json). O webhook local padrão é:
+
+```text
+http://127.0.0.1:5678/webhook/3d-master-pedido
+```
+
+O workflow é publicado sem credenciais e permanece inativo no arquivo exportado. Se o n8n estiver desligado, os pedidos continuam sendo salvos normalmente.
+
+## Testes
 
 ```powershell
 npm test
 ```
 
-## Ollama (opcional)
+A suíte verifica:
 
-O sistema sempre gera uma mensagem padrão, mesmo sem IA. Para habilitar a melhoria de texto:
-
-1. Instale e inicie o Ollama.
-2. Baixe o modelo recomendado para este computador: `ollama pull qwen3.5:4b`.
-3. No painel, abra **Configurações** e confirme o endereço e o nome do modelo.
-4. Em um pedido, use **Melhorar com Ollama**.
-
-## n8n (opcional)
-
-O fluxo **3D Master - Novo pedido** está salvo em `n8n/workflows/3d-master-novo-pedido.json`. Seu webhook local é `http://127.0.0.1:5678/webhook/3d-master-pedido`. Cada pedido é registrado no histórico de execuções do n8n. Se o n8n estiver desligado, o cadastro do pedido continua funcionando normalmente.
-
-## Backup
-
-Com o sistema fechado, copie a pasta `data`. Ela contém o banco e as imagens de referência. Não publique essa pasta no GitHub; ela está ignorada pelo Git.
+- formação do preço e margem;
+- valor mínimo do pedido;
+- mensagem de fallback sem IA;
+- criação e leitura de pedido em SQLite.
 
 ## Segurança e privacidade
 
-- O painel, o n8n e o Ollama usam endereços `127.0.0.1`, acessíveis somente no próprio computador.
-- O iniciador não executa Cloudflare Tunnel, encaminhamento de porta ou publicação na internet.
-- Banco SQLite, imagens, dados do n8n, arquivos `.env`, chaves e temporários são bloqueados pelo `.gitignore`.
-- O workflow versionado do n8n não contém credenciais e é publicado inativo.
-- Para disponibilizar o sistema externamente, implemente autenticação, HTTPS e uma revisão de segurança antes de alterar o endereço de escuta.
+- painel e n8n limitados a `127.0.0.1`;
+- nenhum Cloudflare Tunnel ou encaminhamento de porta no iniciador;
+- banco, imagens, dados do n8n, arquivos `.env`, chaves e temporários bloqueados pelo `.gitignore`;
+- nenhum dado real de cliente ou credencial versionado;
+- acesso externo não suportado nesta versão sem autenticação, HTTPS e nova auditoria.
 
-Consulte também a [política de segurança](SECURITY.md).
+Veja a [política de segurança](SECURITY.md) para os limites e cuidados de implantação.
 
-## Próximas evoluções sugeridas
+## Manual de operação
 
-- Exportação do orçamento em PDF
-- Cálculo por perfil de impressora e tipo de filamento
-- Histórico de alterações por pedido
-- Etiqueta e ficha de produção para impressão
-- Autenticação, caso o painel passe a ser acessado por outras pessoas
+O passo a passo completo está disponível em:
+
+**[Baixar o Manual Prático da 3D Master](outputs/Manual-Pratico-3D-Master.pdf)**
+
+O PDF cobre inicialização, custos, pedidos, orçamento, WhatsApp, produção, n8n, backup e solução de problemas.
+
+## Estrutura do projeto
+
+```text
+3d-master-automation/
+|-- public/                 # Interface web
+|-- lib/                    # Regras de precificação e mensagens
+|-- n8n/workflows/          # Workflow exportável, sem credenciais
+|-- scripts/                # Inicializador dos serviços locais
+|-- tests/                  # Testes unitários e de integração
+|-- docs/                   # Documentação técnica
+|-- outputs/                # Manual público em PDF
+|-- server.mjs              # Servidor, API e persistência SQLite
+`-- INICIAR-3D-MASTER.cmd   # Inicialização simplificada no Windows
+```
+
+As pastas `data/`, `work/`, `tmp/` e `node_modules/` são locais e não são publicadas.
+
+## Competências demonstradas
+
+- levantamento de requisitos e transformação de processo manual em produto;
+- modelagem de dados e persistência transacional;
+- desenvolvimento full stack com JavaScript;
+- integração entre API, IA local e automação;
+- desenho de fallback para dependências opcionais;
+- testes automatizados, documentação e segurança por padrão.
+
+## Roadmap
+
+- perfis por impressora e material;
+- ficha de produção e orçamento em PDF;
+- histórico de alterações por pedido;
+- exportação de indicadores operacionais;
+- autenticação e controle de acesso para uma futura versão em rede.
+
+---
+
+Desenvolvido como solução real para a operação da **3D Master** e como demonstração prática de automação e inteligência artificial local.

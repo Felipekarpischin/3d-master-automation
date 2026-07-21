@@ -1,8 +1,8 @@
 {
-  "name": "3d-master-mvp",
+  "name": "3d-master-automation",
   "version": "1.0.0",
   "private": true,
-  "description": "Painel local de pedidos e orçamentos da 3D Master",
+  "description": "Sistema local de pedidos, orçamentos e automação para impressão 3D",
   "type": "module",
   "engines": {
     "node": ">=22.13.0"
